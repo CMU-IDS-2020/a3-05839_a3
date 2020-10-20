@@ -3,10 +3,12 @@ import numpy as np
 import pandas as pd
 import altair as alt
 
-POPU_DIST = "Population Distribution"
+POPU_DIST = "Population Distribution by Country"
 OVERVIEW = 'Overview'
+SINGLE_FACTOR_OVER_TIME = 'What affects life expectancy?'
 # locations of data
 HEALTH_URL = "https://raw.githubusercontent.com/CMU-IDS-2020/a3-05839_a3/master/data/health.csv"
+MERGED_URL = "https://raw.githubusercontent.com/CMU-IDS-2020/a3-05839_a3/master/data/merged_data_country_only.csv"
 
 def main():
 
@@ -14,19 +16,22 @@ def main():
 	# Add a selector for the app mode on the sidebar.
 	st.sidebar.title("Navigation")
 	vis_topic = st.sidebar.radio("",
-		(str(OVERVIEW), str(POPU_DIST), ))
+		(str(OVERVIEW), str(POPU_DIST), str(SINGLE_FACTOR_OVER_TIME)))
 	if vis_topic == OVERVIEW:
 		# Render main readme, placeholder
 		readme_text = st.markdown("readme.md")
-	if vis_topic == POPU_DIST:
-		st.write(POPU_DIST)
+	elif vis_topic == POPU_DIST:
+		st.title(POPU_DIST)
 		run_popu_dist()
+	elif vis_topic == SINGLE_FACTOR_OVER_TIME:
+		st.title(SINGLE_FACTOR_OVER_TIME)
+		run_trend_over_time()
 
 @st.cache
-# load and pre-process data
 def load_data(url):
     data = pd.read_csv(url, header=0, skipinitialspace=True)
-    return data
+    countries = data['Country Name'].unique()
+    return data, countries
 
 @st.cache
 def group_by_country(df):    
@@ -34,17 +39,27 @@ def group_by_country(df):
 
 @st.cache
 def load_health_data():
-	df = load_data(HEALTH_URL)
-	coutries = df['Country Name'].unique()
-	return df, coutries
+	df, countries = load_data(HEALTH_URL)
+	return df, countries
 
+@st.cache
+def load_merge_data():
+	df, countries = load_data(MERGED_URL)
+	df['Year'] = pd.to_datetime(df['Year'], format='%Y')
+	return df, countries
+
+
+@st.cache
+def data_group_by_country(df):
+	grouped = dict(tuple(group_by_country(df)))
+	return grouped	
+
+@st.cache
+def keep_only_selected_countries(df, selected_countries):
+	sub_df = df[df['Country Name'].isin(selected_countries)]
+	return sub_df
 
 def run_popu_dist():
-
-	@st.cache
-	def health_group_by_country(df):
-		grouped = dict(tuple(group_by_country(df)))
-		return grouped
 
 	@st.cache
 	def get_total_ymax(country_df, health_df):
@@ -59,7 +74,7 @@ def run_popu_dist():
 
 	# load health data
 	health_df, countries = load_health_data()
-	health_grouped = health_group_by_country(health_df)
+	health_grouped = data_group_by_country(health_df)
 
 	st.sidebar.header("Adjust Parameters")
 
@@ -152,6 +167,48 @@ def run_popu_dist():
 		    tooltip=['Population ages', '% of Total Population']
 		).interactive().add_selection(highlight)
 		st.altair_chart(hist, use_container_width=True)
+
+def run_trend_over_time():
+
+	data, countries = load_merge_data()
+
+	# always plot the life expectancy
+	life_exp = alt.Chart(data).mark_line().encode(
+		x=alt.X('Year:T', axis = alt.Axis(title = 'Year', format = ("%Y"))),
+	    y='Life expectancy at birth, total (years)',
+	    color='Country Name'
+	)
+
+	# drop box to select one variable to view
+	st.sidebar.header("Adjust Parameters")
+
+	factors = ['Gini',
+       'Current health expenditure (% of GDP)',
+       'Current health expenditure per capita (current US$)',
+       'GDP per capita (current US$)',
+       'Unemployment, total (% of total labor force)']
+
+	factor = st.sidebar.selectbox("Additional Factors", factors)
+
+	selected_countries = st.sidebar.multiselect('Select Countries to compare', countries)
+	# plot factor countries over time
+	if selected_countries:
+
+		curr_df = keep_only_selected_countries(data, selected_countries)
+		factor_plot = alt.Chart(curr_df).mark_line().encode(
+		    x=alt.X('Year:T', axis = alt.Axis(title = 'Year', format = ("%Y"))),
+		    y=str(factor),
+		    color='Country Name'
+		)
+		st.altair_chart(factor_plot, use_container_width=True)
+		life_exp_sub = alt.Chart(curr_df).mark_line().encode(
+		    x=alt.X('Year:T', axis = alt.Axis(title = 'Year', format = ("%Y"))),
+		    y='Life expectancy at birth, total (years)',
+		    color='Country Name'
+		)
+		st.altair_chart(life_exp_sub, use_container_width=True)
+	else:
+		st.altair_chart(life_exp, use_container_width=True)
 
 if __name__ == "__main__":
     main()
