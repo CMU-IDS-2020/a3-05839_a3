@@ -91,6 +91,8 @@ def run_popu_dist():
 			maxx = curr_data['% of Female Population'].max()
 
 		base = alt.Chart(curr_data).properties(width=300)
+		# highlight selector
+		highlight = alt.selection_single(on='mouseover', fields=['Population ages'], nearest=False, clear="mouseout")
 
 		left = base.encode(
 		    y=alt.Y('Population ages', axis=None),
@@ -98,9 +100,13 @@ def run_popu_dist():
 		            title='% of Female Population',
 		            sort=alt.SortOrder('descending'),
 		            scale=alt.Scale(domain=(0, maxx))),
-		    color=alt.Color('Population ages:O', scale=alt.Scale(scheme='redpurple'), legend=None),
+		    color=alt.condition(
+		        ~highlight,
+		        alt.Color('Population ages:O', scale=alt.Scale(scheme='redpurple'), legend=None),
+		        alt.value('orange'),     # which sets the bar orange.
+		    ),
 		    tooltip=['Population ages', '% of Female Population']
-		).mark_bar().properties(title='Female').interactive()
+		).mark_bar().properties(title='Female').interactive().add_selection(highlight)
 
 		middle = base.encode(
 		    y=alt.Y('Population ages', axis=None),
@@ -113,9 +119,13 @@ def run_popu_dist():
 		            title='% of Male Population',
 		            sort=alt.SortOrder('ascending'),
 		            scale=alt.Scale(domain=(0, maxx))),
-		    color=alt.Color('Population ages:O',scale=alt.Scale(scheme='blues'), legend=None),
+		    color=alt.condition(
+		        ~highlight,
+		        alt.Color('Population ages:O',scale=alt.Scale(scheme='blues'), legend=None),
+		        alt.value('orange'),     # which sets the bar orange.
+		    ),
 		    tooltip=['Population ages', '% of Male Population']
-		).mark_bar().properties(title='Male').interactive()
+		).mark_bar().properties(title='Male').interactive().add_selection(highlight)
 
 		bihist=alt.concat(left, middle, right, spacing=2).resolve_scale(color='independent')
 		st.altair_chart(bihist, use_container_width=True)
@@ -127,13 +137,20 @@ def run_popu_dist():
 			values.append(row['Population ages {} (% of total population)'.format(r)].item())
 		curr_data = pd.DataFrame({'Population ages': age_ranges, '% of Total Population': values})
 
+		# highlight selector
+		highlight = alt.selection_single(on='mouseover', fields=['Population ages'], nearest=False, clear="mouseout")
+
 		hist = alt.Chart(curr_data).mark_bar().encode(
 		    alt.X('% of Total Population',
 		    	scale=alt.Scale(domain=(0, get_total_ymax(country_df, health_df)))),
 		    y='Population ages',
-		    color=alt.Color('Population ages:O', scale=alt.Scale(scheme='greens'), legend=None),
+		    color=alt.condition(
+		        ~highlight,
+		        alt.Color('Population ages:O', scale=alt.Scale(scheme='greens'), legend=None),
+		        alt.value('orange'),     # which sets the bar orange.
+		    ),
 		    tooltip=['Population ages', '% of Total Population']
-		).interactive()
+		).interactive().add_selection(highlight)
 		st.altair_chart(hist, use_container_width=True)
 
 if __name__ == "__main__":
