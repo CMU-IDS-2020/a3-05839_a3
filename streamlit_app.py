@@ -3,27 +3,36 @@ import numpy as np
 import pandas as pd
 import altair as alt
 
+
+OVERVIEW = "Overview"
 POPU_DIST = "Population Distribution by Country"
-OVERVIEW = 'Overview'
+VAR_RELATIONSHIP_PER_COUNTRY = "Health & Economy Interaction, per Country"
+ONE_VAR_ACROSS_REGION = "Health / Economy over the World"
 SINGLE_FACTOR_OVER_TIME = 'What affects life expectancy?'
 POINT2_PLACEHOLDER = 'Point2 Graph'
 # locations of data
 HEALTH_URL = "https://raw.githubusercontent.com/CMU-IDS-2020/a3-05839_a3/master/data/health.csv"
+OTHER_DATA_URL = "https://raw.githubusercontent.com/CMU-IDS-2020/a3-05839_a3/master/data/merged_data_country_only_with_id_lat_lon.csv"
 MERGED_URL = "https://raw.githubusercontent.com/CMU-IDS-2020/a3-05839_a3/master/data/merged_data_country_only.csv"
+WORLD_MAP_URL = "https://raw.githubusercontent.com/vega/vega-datasets/master/data/world-110m.json"
 
 def main():
-
-
 	# Add a selector for the app mode on the sidebar.
 	st.sidebar.title("Navigation")
 	vis_topic = st.sidebar.radio("",
-		(str(OVERVIEW), str(POPU_DIST), str(SINGLE_FACTOR_OVER_TIME), str(POINT2_PLACEHOLDER)))
+		(str(OVERVIEW), str(POPU_DIST), str(SINGLE_FACTOR_OVER_TIME) , str(POINT2_PLACEHOLDER), str(VAR_RELATIONSHIP_PER_COUNTRY), str(ONE_VAR_ACROSS_REGION)))
 	if vis_topic == OVERVIEW:
 		# Render main readme, placeholder
 		readme_text = st.markdown("readme.md")
 	elif vis_topic == POPU_DIST:
 		st.title(POPU_DIST)
 		run_popu_dist()
+	elif vis_topic == VAR_RELATIONSHIP_PER_COUNTRY:
+		st.write(VAR_RELATIONSHIP_PER_COUNTRY)
+		run_var_relationship_per_country()
+	elif vis_topic == ONE_VAR_ACROSS_REGION:
+		st.write(ONE_VAR_ACROSS_REGION)
+		run_one_var_across_region()
 	elif vis_topic == SINGLE_FACTOR_OVER_TIME:
 		st.title(SINGLE_FACTOR_OVER_TIME)
 		run_trend_over_time()
@@ -31,20 +40,33 @@ def main():
 		st.title(POINT2_PLACEHOLDER)
 		run_relationship_per_year_all_countries()
 
+
 @st.cache
 def load_data(url):
     data = pd.read_csv(url, header=0, skipinitialspace=True)
     countries = data['Country Name'].unique()
     return data, countries
 
+
 @st.cache
 def group_by_country(df):    
 	return df.groupby(['Country Name'])
+
 
 @st.cache
 def load_health_data():
 	df, countries = load_data(HEALTH_URL)
 	return df, countries
+
+@st.cache
+def load_other_data():
+	df, countries = load_data(OTHER_DATA_URL)
+	df['id'] = df['id'].astype(str)
+	df['id'] = df['id'].str.zfill(3)
+	econ_indicators = df.columns[[3, 6, 8]]
+	health_indicators = df.columns[[4, 5, 7]]
+	return df, countries, econ_indicators, health_indicators
+
 
 @st.cache
 def load_merge_data():
@@ -57,10 +79,20 @@ def data_group_by_country(df):
 	grouped = dict(tuple(group_by_country(df)))
 	return grouped	
 
+
 @st.cache
 def keep_only_selected_countries(df, selected_countries):
+	# takes in a dataframe and list of country names
+	# this function will return a dataframe with only data from the specified countries
 	sub_df = df[df['Country Name'].isin(selected_countries)]
 	return sub_df
+
+
+@st.cache
+def dropna_by_feature(df, features):
+	# takes in a dataframe and list of features to checkon,
+	# this function will drop rows which has np.nan in any of the features specifed
+	return df.dropna(how='any', subset=features)
 
 def run_popu_dist():
 
@@ -171,6 +203,76 @@ def run_popu_dist():
 		).interactive().add_selection(highlight)
 		st.altair_chart(hist, use_container_width=True)
 
+
+def run_var_relationship_per_country():
+	other_data_df, countries, econ_indicators, health_indicators = load_other_data()
+
+	st.sidebar.header("Adjust Parameters")
+
+	country = st.sidebar.selectbox("Country", countries)
+	country_df = other_data_df[other_data_df["Country Name"] == country]
+
+	econ_indicator = st.sidebar.selectbox("Economy Indicator", econ_indicators)
+	health_indicator = st.sidebar.selectbox("Health Indicator", health_indicators)
+	bi_var_df = country_df[["Year", econ_indicator, health_indicator]]
+
+	if bi_var_df.dropna().empty:
+		st.write("Data Not Available")
+	else:
+		base = alt.Chart(bi_var_df).encode(
+			alt.X('Year', axis=alt.Axis(title=None))
+		)
+		line1 = base.mark_line(color='#5276A7').encode(
+			alt.Y(econ_indicator,
+				  axis=alt.Axis(title=econ_indicator, titleColor='#5276A7'))
+		)
+		line2 = base.mark_line(color='#57A44C').encode(
+			alt.Y(health_indicator,
+				  axis=alt.Axis(title=health_indicator, titleColor='#57A44C'))
+		)
+		line_plot = alt.layer(line1, line2).resolve_scale(
+			y='independent'
+		)
+		st.altair_chart(line_plot, use_container_width=True)
+
+
+def run_one_var_across_region():
+	countries = alt.topo_feature(WORLD_MAP_URL, 'countries')
+	other_data_df, _, econ_indicators, health_indicators = load_other_data()
+	st.sidebar.header("Adjust Parameters")
+
+	indicator = st.sidebar.selectbox("Health / Economy Indicator", list(econ_indicators) + list(health_indicators))
+	uni_var_df = other_data_df[["Country Name", "Year", indicator, 'id', 'Latitude (average)', 'Longitude (average)']]
+
+	max_year = uni_var_df["Year"].max().item()
+	year = st.sidebar.select_slider("Year", options=list(np.sort(uni_var_df['Year'].unique())), value=max_year)
+	uni_var_one_year_df = uni_var_df[uni_var_df["Year"] == year]
+
+	if uni_var_one_year_df.dropna().empty:
+		st.write("Data Not Available")
+	else:
+		map = alt.Chart(countries).mark_geoshape().encode(
+			color=alt.Color(indicator+':Q', scale=alt.Scale(scheme="plasma"))
+		).transform_lookup(
+			lookup='id',
+			from_=alt.LookupData(uni_var_one_year_df, 'id', [indicator])
+		).project(
+			'equirectangular'
+		)
+		hover = alt.selection(type='single', on='mouseover', nearest=True,
+							  fields=['Longitude (average)', 'Latitude (average):Q'])
+		points = alt.Chart(uni_var_one_year_df).mark_circle(
+			point = 'transparent'
+		).encode(
+			longitude='Longitude (average):Q',
+			latitude='Latitude (average):Q',
+			opacity=alt.value(0),
+			tooltip=['Country Name:N', indicator+':Q']
+		).add_selection(hover)
+		map = map + points
+		st.altair_chart(map, use_container_width=True)
+
+
 def run_trend_over_time():
 
 	data_cached, countries = load_merge_data()
@@ -261,10 +363,6 @@ def run_trend_over_time():
 def run_relationship_per_year_all_countries():
 
 	@st.cache
-	def dropna_by_feature(df, e_feature, h_feature):
-		return df.dropna(how='any', subset=[e_feature, h_feature])
-
-	@st.cache
 	def get_by_year(df, year):
 		return df[df['Year'] == year]
 
@@ -284,7 +382,7 @@ def run_relationship_per_year_all_countries():
 	e_factor = st.sidebar.radio("Economics Factor", (econ_factors))
 	h_factor = st.sidebar.radio("Health Factor", (health_factors))
 
-	curr_data = dropna_by_feature(data, e_factor, h_factor)
+	curr_data = dropna_by_feature(data, [e_factor, h_factor])
 
 	max_year = curr_data['Year'].max().item()
 	year = st.sidebar.select_slider("Year", options=list(np.sort(curr_data['Year'].unique())), value=max_year)
