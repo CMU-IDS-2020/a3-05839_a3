@@ -191,22 +191,67 @@ def run_trend_over_time():
 	factor = st.sidebar.selectbox("Additional Factors", factors)
 
 	selected_countries = st.sidebar.multiselect('Select Countries to compare', countries)
+
 	# plot factor countries over time
 	if selected_countries:
 
 		curr_df = keep_only_selected_countries(data, selected_countries)
-		factor_plot = alt.Chart(curr_df).mark_line().encode(
+
+		line_p = alt.Chart(curr_df).mark_line().encode(
 		    x=alt.X('Year:T', axis = alt.Axis(title = 'Year', format = ("%Y"))),
-		    y=str(factor),
 		    color='Country Name'
 		)
-		st.altair_chart(factor_plot, use_container_width=True)
-		life_exp_sub = alt.Chart(curr_df).mark_line().encode(
-		    x=alt.X('Year:T', axis = alt.Axis(title = 'Year', format = ("%Y"))),
-		    y='Life expectancy at birth, total (years)',
-		    color='Country Name'
-		)
-		st.altair_chart(life_exp_sub, use_container_width=True)
+		upper = line_p.encode(y=str(factor))
+		lower = line_p.encode(y='Life expectancy at birth, total (years)')
+
+		# Create a selection that chooses the nearest point & selects based on x-value
+		nearest = alt.selection(type='single', nearest=True, on='mouseover',
+                        		fields=['Year'], empty='none')
+		idx = 0
+		plots = [upper, lower]
+		result_plots = []
+		for line in plots:
+
+			# Transparent selectors across the chart. This is what tells us
+			# the x-value of the cursor
+			selectors = alt.Chart(curr_df).mark_point().encode(
+			    x='Year',
+			    opacity=alt.value(0),
+			)
+			if idx == 0:
+				selectors = selectors.add_selection(nearest)
+
+			# Draw a rule at the location of the selection
+			rules = alt.Chart(curr_df).mark_rule(color='darkgray').encode(
+			    x='Year',
+			).transform_filter(
+			    nearest
+			)
+			# Draw points on the line, and highlight based on selection
+			points = line.mark_point().encode(
+			    opacity=alt.condition(nearest, alt.value(1), alt.value(0))
+			)
+			if idx == 0:
+				# Draw text labels near the points, and highlight based on selection
+				text = line.mark_text(align='left', dx=5, dy=-5).encode(
+				    text=alt.condition(nearest, str(factor), alt.value(' '))
+				)
+			else:
+				# Draw text labels near the points, and highlight based on selection
+				text = line.mark_text(align='left', dx=10, dy=-10).encode(
+				    text=alt.condition(nearest, 'Life expectancy at birth, total (years)', alt.value(' '))
+				)	
+
+			# Put the five layers into a chart and bind the data
+			result_plots.append(alt.layer(
+			    line, 
+			    selectors, points, 
+			    rules, 
+			    text
+			))
+			idx += 1
+		result_plot = alt.vconcat(result_plots[0], result_plots[1]) 
+		st.altair_chart(result_plot, use_container_width=True)
 	else:
 		st.altair_chart(life_exp, use_container_width=True)
 
