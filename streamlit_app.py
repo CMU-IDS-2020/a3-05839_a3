@@ -6,38 +6,43 @@ from vega_datasets import data
 
 
 OVERVIEW = "Overview"
-POPU_DIST = "Population Distribution"
+POPU_DIST = "Population Distribution by Country"
 VAR_RELATIONSHIP_PER_COUNTRY = "Health & Economy Interaction, per Country"
 ONE_VAR_ACROSS_REGION = "Health / Economy over the World"
+SINGLE_FACTOR_OVER_TIME = 'What affects life expectancy?'
 # locations of data
 HEALTH_URL = "https://raw.githubusercontent.com/CMU-IDS-2020/a3-05839_a3/master/data/health.csv"
 OTHER_DATA_URL = "https://raw.githubusercontent.com/CMU-IDS-2020/a3-05839_a3/master/data/merged_data_country_only_with_id_lat_lon.csv"
+MERGED_URL = "https://raw.githubusercontent.com/CMU-IDS-2020/a3-05839_a3/master/data/merged_data_country_only.csv"
 
 
 def main():
 	# Add a selector for the app mode on the sidebar.
 	st.sidebar.title("Navigation")
 	vis_topic = st.sidebar.radio("",
-		(str(OVERVIEW), str(POPU_DIST), str(VAR_RELATIONSHIP_PER_COUNTRY), str(ONE_VAR_ACROSS_REGION)))
+		(str(OVERVIEW), str(POPU_DIST), str(SINGLE_FACTOR_OVER_TIME), str(VAR_RELATIONSHIP_PER_COUNTRY), str(ONE_VAR_ACROSS_REGION)))
 	if vis_topic == OVERVIEW:
 		# Render main readme, placeholder
 		readme_text = st.markdown("readme.md")
-	if vis_topic == POPU_DIST:
-		st.write(POPU_DIST)
+	elif vis_topic == POPU_DIST:
+		st.title(POPU_DIST)
 		run_popu_dist()
-	if vis_topic == VAR_RELATIONSHIP_PER_COUNTRY:
+	elif vis_topic == VAR_RELATIONSHIP_PER_COUNTRY:
 		st.write(VAR_RELATIONSHIP_PER_COUNTRY)
 		run_var_relationship_per_country()
-	if vis_topic == ONE_VAR_ACROSS_REGION:
+	elif vis_topic == ONE_VAR_ACROSS_REGION:
 		st.write(ONE_VAR_ACROSS_REGION)
 		run_one_var_across_region()
+	elif vis_topic == SINGLE_FACTOR_OVER_TIME:
+		st.title(SINGLE_FACTOR_OVER_TIME)
+		run_trend_over_time()
 
 
 @st.cache
-# load and pre-process data
 def load_data(url):
     data = pd.read_csv(url, header=0, skipinitialspace=True)
-    return data
+    countries = data['Country Name'].unique()
+    return data, countries
 
 
 @st.cache
@@ -47,27 +52,39 @@ def group_by_country(df):
 
 @st.cache
 def load_health_data():
-	df = load_data(HEALTH_URL)
-	coutries = df['Country Name'].unique()
-	return df, coutries
+	df, countries = load_data(HEALTH_URL)
+	return df, countries
 
 @st.cache
 def load_other_data():
-	df = load_data(OTHER_DATA_URL)
+	df, countries = load_data(OTHER_DATA_URL)
 	df['id'] = df['id'].astype(str)
 	df['id'] = df['id'].str.zfill(3)
-	countries = df['Country Name'].unique()
 	econ_indicators = df.columns[[3, 6, 8]]
 	health_indicators = df.columns[[4, 5, 7]]
 	return df, countries, econ_indicators, health_indicators
 
 
-def run_popu_dist():
+@st.cache
+def load_merge_data():
+	df, countries = load_data(MERGED_URL)
+	df['Year'] = pd.to_datetime(df['Year'], format='%Y')
+	return df, countries
 
-	@st.cache
-	def health_group_by_country(df):
-		grouped = dict(tuple(group_by_country(df)))
-		return grouped
+
+@st.cache
+def data_group_by_country(df):
+	grouped = dict(tuple(group_by_country(df)))
+	return grouped	
+
+
+@st.cache
+def keep_only_selected_countries(df, selected_countries):
+	sub_df = df[df['Country Name'].isin(selected_countries)]
+	return sub_df
+
+
+def run_popu_dist():
 
 	@st.cache
 	def get_total_ymax(country_df, health_df):
@@ -82,7 +99,7 @@ def run_popu_dist():
 
 	# load health data
 	health_df, countries = load_health_data()
-	health_grouped = health_group_by_country(health_df)
+	health_grouped = data_group_by_country(health_df)
 
 	st.sidebar.header("Adjust Parameters")
 
@@ -244,6 +261,95 @@ def run_one_var_across_region():
 		).add_selection(hover)
 		map = map + points
 		st.altair_chart(map, use_container_width=True)
+
+
+def run_trend_over_time():
+
+	data, countries = load_merge_data()
+
+	# always plot the life expectancy
+	life_exp = alt.Chart(data).mark_line().encode(
+		x=alt.X('Year:T', axis = alt.Axis(title = 'Year', format = ("%Y"))),
+	    y='Life expectancy at birth, total (years)',
+	    color='Country Name'
+	)
+
+	# drop box to select one variable to view
+	st.sidebar.header("Adjust Parameters")
+
+	factors = ['Gini',
+       'Current health expenditure (% of GDP)',
+       'Current health expenditure per capita (current US$)',
+       'GDP per capita (current US$)',
+       'Unemployment, total (% of total labor force)']
+
+	factor = st.sidebar.selectbox("Additional Factors", factors)
+
+	selected_countries = st.sidebar.multiselect('Select Countries to compare', countries)
+
+	# plot factor countries over time
+	if selected_countries:
+
+		curr_df = keep_only_selected_countries(data, selected_countries)
+
+		line_p = alt.Chart(curr_df).mark_line().encode(
+		    x=alt.X('Year:T', axis = alt.Axis(title = 'Year', format = ("%Y"))),
+		    color='Country Name'
+		)
+		upper = line_p.encode(y=str(factor))
+		lower = line_p.encode(y='Life expectancy at birth, total (years)')
+
+		# Create a selection that chooses the nearest point & selects based on x-value
+		nearest = alt.selection(type='single', nearest=True, on='mouseover',
+                        		fields=['Year'], empty='none')
+		idx = 0
+		plots = [upper, lower]
+		result_plots = []
+		for line in plots:
+
+			# Transparent selectors across the chart. This is what tells us
+			# the x-value of the cursor
+			selectors = alt.Chart(curr_df).mark_point().encode(
+			    x='Year',
+			    opacity=alt.value(0),
+			)
+			if idx == 0:
+				selectors = selectors.add_selection(nearest)
+
+			# Draw a rule at the location of the selection
+			rules = alt.Chart(curr_df).mark_rule(color='darkgray').encode(
+			    x='Year',
+			).transform_filter(
+			    nearest
+			)
+			# Draw points on the line, and highlight based on selection
+			points = line.mark_point().encode(
+			    opacity=alt.condition(nearest, alt.value(1), alt.value(0))
+			)
+			if idx == 0:
+				# Draw text labels near the points, and highlight based on selection
+				text = line.mark_text(align='left', dx=5, dy=-5).encode(
+				    text=alt.condition(nearest, str(factor), alt.value(' '))
+				)
+			else:
+				# Draw text labels near the points, and highlight based on selection
+				text = line.mark_text(align='left', dx=10, dy=-10).encode(
+				    text=alt.condition(nearest, 'Life expectancy at birth, total (years)', alt.value(' '))
+				)	
+
+			# Put the five layers into a chart and bind the data
+			result_plots.append(alt.layer(
+			    line, 
+			    selectors, points, 
+			    rules, 
+			    text
+			))
+			idx += 1
+		result_plot = alt.vconcat(result_plots[0], result_plots[1]) 
+		st.altair_chart(result_plot, use_container_width=True)
+	else:
+		st.altair_chart(life_exp, use_container_width=True)
+
 
 if __name__ == "__main__":
     main()
