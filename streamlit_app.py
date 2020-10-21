@@ -205,8 +205,9 @@ def run_popu_dist():
 
 
 def run_var_relationship_per_country():
-	other_data_df, countries, econ_indicators, health_indicators = load_other_data()
-
+	df, countries, econ_indicators, health_indicators = load_other_data()
+	other_data_df = df.copy()
+	other_data_df['Year'] = pd.to_datetime(other_data_df['Year'], format='%Y')
 	st.sidebar.header("Adjust Parameters")
 
 	country = st.sidebar.selectbox("Country", countries)
@@ -219,17 +220,23 @@ def run_var_relationship_per_country():
 	if bi_var_df.dropna().empty:
 		st.write("Data Not Available")
 	else:
+		nearest1 = alt.selection(type='single', nearest=True, on='mouseover',
+								fields=['Year'], empty='none')
+		nearest2 = alt.selection(type='single', nearest=True, on='mouseover',
+								fields=['x'], empty='none')
 		base = alt.Chart(bi_var_df).encode(
-			alt.X('Year', axis=alt.Axis(title=None))
+			alt.X('Year:T', axis=alt.Axis(title='Year', format=("%Y")))
 		)
 		line1 = base.mark_line(color='#5276A7').encode(
 			alt.Y(econ_indicator,
-				  axis=alt.Axis(title=econ_indicator, titleColor='#5276A7'))
-		)
+				  axis=alt.Axis(title=econ_indicator, titleColor='#5276A7')),
+				  tooltip=[alt.Tooltip(econ_indicator, title=econ_indicator)]
+		).add_selection(nearest1).interactive()
 		line2 = base.mark_line(color='#57A44C').encode(
 			alt.Y(health_indicator,
-				  axis=alt.Axis(title=health_indicator, titleColor='#57A44C'))
-		)
+				  axis=alt.Axis(title=health_indicator, titleColor='#57A44C')),
+			      tooltip=[alt.Tooltip(health_indicator, title=health_indicator)]
+		).add_selection(nearest2).interactive()
 		line_plot = alt.layer(line1, line2).resolve_scale(
 			y='independent'
 		)
@@ -293,7 +300,7 @@ def run_trend_over_time():
        'Current health expenditure (% of GDP)',
        'Current health expenditure per capita (current US$)',
        'GDP per capita (current US$)',
-       'Unemployment, total (% of total labor force)'
+       'Unemployment, total (% of total labor force)',
        'Gini',]
 
 	factor = st.sidebar.selectbox("Additional Factors", factors)
