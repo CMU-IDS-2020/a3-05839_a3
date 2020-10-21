@@ -6,6 +6,7 @@ import altair as alt
 POPU_DIST = "Population Distribution by Country"
 OVERVIEW = 'Overview'
 SINGLE_FACTOR_OVER_TIME = 'What affects life expectancy?'
+POINT2_PLACEHOLDER = 'Point2 Graph'
 # locations of data
 HEALTH_URL = "https://raw.githubusercontent.com/CMU-IDS-2020/a3-05839_a3/master/data/health.csv"
 MERGED_URL = "https://raw.githubusercontent.com/CMU-IDS-2020/a3-05839_a3/master/data/merged_data_country_only.csv"
@@ -16,7 +17,7 @@ def main():
 	# Add a selector for the app mode on the sidebar.
 	st.sidebar.title("Navigation")
 	vis_topic = st.sidebar.radio("",
-		(str(OVERVIEW), str(POPU_DIST), str(SINGLE_FACTOR_OVER_TIME)))
+		(str(OVERVIEW), str(POPU_DIST), str(SINGLE_FACTOR_OVER_TIME), str(POINT2_PLACEHOLDER)))
 	if vis_topic == OVERVIEW:
 		# Render main readme, placeholder
 		readme_text = st.markdown("readme.md")
@@ -26,6 +27,9 @@ def main():
 	elif vis_topic == SINGLE_FACTOR_OVER_TIME:
 		st.title(SINGLE_FACTOR_OVER_TIME)
 		run_trend_over_time()
+	elif vis_topic == POINT2_PLACEHOLDER:
+		st.title(POINT2_PLACEHOLDER)
+		run_relationship_per_year_all_countries()
 
 @st.cache
 def load_data(url):
@@ -45,7 +49,6 @@ def load_health_data():
 @st.cache
 def load_merge_data():
 	df, countries = load_data(MERGED_URL)
-	df['Year'] = pd.to_datetime(df['Year'], format='%Y')
 	return df, countries
 
 
@@ -170,7 +173,9 @@ def run_popu_dist():
 
 def run_trend_over_time():
 
-	data, countries = load_merge_data()
+	data_cached, countries = load_merge_data()
+	data = data_cached.copy()
+	data['Year'] = pd.to_datetime(data['Year'], format='%Y')
 
 	# always plot the life expectancy
 	life_exp = alt.Chart(data).mark_line().encode(
@@ -182,11 +187,12 @@ def run_trend_over_time():
 	# drop box to select one variable to view
 	st.sidebar.header("Adjust Parameters")
 
-	factors = ['Gini',
+	factors = [
        'Current health expenditure (% of GDP)',
        'Current health expenditure per capita (current US$)',
        'GDP per capita (current US$)',
-       'Unemployment, total (% of total labor force)']
+       'Unemployment, total (% of total labor force)'
+       'Gini',]
 
 	factor = st.sidebar.selectbox("Additional Factors", factors)
 
@@ -241,19 +247,95 @@ def run_trend_over_time():
 				text = line.mark_text(align='left', dx=10, dy=-10).encode(
 				    text=alt.condition(nearest, 'Life expectancy at birth, total (years)', alt.value(' '))
 				)	
-
-			# Put the five layers into a chart and bind the data
-			result_plots.append(alt.layer(
-			    line, 
-			    selectors, points, 
-			    rules, 
-			    text
-			))
+			if idx == 0:
+				# Put the five layers into a chart and bind the data
+				result_plots.append(alt.layer(line, selectors, points, rules, text))
+			else:
+				result_plots.append(alt.layer(line, selectors, points, rules, text).properties(height=200))	
 			idx += 1
 		result_plot = alt.vconcat(result_plots[0], result_plots[1]) 
 		st.altair_chart(result_plot, use_container_width=True)
 	else:
 		st.altair_chart(life_exp, use_container_width=True)
+
+def run_relationship_per_year_all_countries():
+
+	@st.cache
+	def dropna_by_feature(df, e_feature, h_feature):
+		return df.dropna(how='any', subset=[e_feature, h_feature])
+
+	@st.cache
+	def get_by_year(df, year):
+		return df[df['Year'] == year]
+
+	st.sidebar.header("Adjust Parameters")
+
+	data, countries = load_merge_data()
+
+	econ_factors = [
+			       'GDP per capita (current US$)',
+			       'Unemployment, total (% of total labor force)',
+			       'Gini',]
+
+	health_factors = ['Current health expenditure (% of GDP)',
+				       'Current health expenditure per capita (current US$)',
+				       'Life expectancy at birth, total (years)',]
+
+	e_factor = st.sidebar.radio("Economics Factor", (econ_factors))
+	h_factor = st.sidebar.radio("Health Factor", (health_factors))
+
+	curr_data = dropna_by_feature(data, e_factor, h_factor)
+
+	max_year = curr_data['Year'].max().item()
+	year = st.sidebar.select_slider("Year", options=list(np.sort(curr_data['Year'].unique())), value=max_year)
+
+	curr_data = get_by_year(curr_data, year)
+	st.dataframe(curr_data[['Country Name', e_factor, h_factor]].assign(hack='').set_index('hack'))
+
+	# plot a auxilariy life expectancy graph below
+
+	# get max and min y
+	max_life = curr_data['Life expectancy at birth, total (years)'].max().item()
+	min_life = curr_data['Life expectancy at birth, total (years)'].min().item()
+
+	# double click to clear brush
+	brush = alt.selection_interval(encodings=['x'])
+	highlight = alt.selection_single(encodings=['color'], on='mouseover', nearest=False, clear="mouseout")
+
+	stripplot = alt.Chart(curr_data).mark_circle(size=50).encode(
+		x=alt.X('Life expectancy at birth, total (years):Q', 
+			scale=alt.Scale(domain=(min_life, max_life))
+		),
+		y=alt.Y('jitter:Q',
+	        title=None,
+	        axis=alt.Axis(values=[0], ticks=True, grid=False, labels=False),
+	        scale=alt.Scale(),
+	    ),
+		color=alt.Color('Country Name', legend=None),
+	).transform_calculate(
+		# Generate Gaussian jitter with a Box-Muller transform
+		jitter='sqrt(-2*log(random()))*cos(2*PI*random())'
+	).properties(
+		width=700,
+		height=50
+	).add_selection(brush).transform_filter(highlight)
+
+
+	# get max and min y
+	maxy = curr_data[h_factor].max().item()
+	miny = curr_data[h_factor].min().item()
+	maxx = curr_data[e_factor].max().item()
+	minx = curr_data[e_factor].min().item()
+	plot = alt.Chart(curr_data).mark_point().encode(
+	    x=alt.X(e_factor, scale=alt.Scale(domain=(minx, maxx))),
+	    y=alt.Y(h_factor,
+	            scale=alt.Scale(domain=(miny, maxy))),
+	    color=alt.Color('Country Name', legend=None),
+	    tooltip=alt.Tooltip(['Country Name'])
+	).transform_filter(brush).properties(width=700).add_selection(highlight)
+	result = alt.vconcat(plot, stripplot)
+
+	st.altair_chart(result, use_container_width=True)
 
 if __name__ == "__main__":
     main()
