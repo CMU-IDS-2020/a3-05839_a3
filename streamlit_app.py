@@ -499,13 +499,16 @@ def run_one_var_across_region():
 		st.write("Data Not Available")
 	else:
 		map = alt.Chart(countries).mark_geoshape().encode(
-			color=alt.Color(indicator+':Q', scale=alt.Scale(scheme="yellowgreenblue"))
+			color=alt.Color(indicator+':Q',
+				scale=alt.Scale(scheme="yellowgreenblue"),
+				legend=alt.Legend(orient='top', titleLimit=800, titleOrient='left'))
 		).transform_lookup(
 			lookup='id',
 			from_=alt.LookupData(uni_var_one_year_df, 'id', [indicator])
 		).project(
 			'equirectangular'
 		)
+
 		hover = alt.selection(type='single', on='mouseover', nearest=True,
 							  fields=['Longitude (average)', 'Latitude (average):Q'])
 		points = alt.Chart(uni_var_one_year_df).mark_circle(
@@ -516,7 +519,7 @@ def run_one_var_across_region():
 			opacity=alt.value(0),
 			tooltip=['Country Name:N', indicator+':Q']
 		).add_selection(hover)
-		map = map + points
+		map = (map + points).properties(height=500)
 		st.altair_chart(map, use_container_width=True)
 	st.markdown('''
 	### References
