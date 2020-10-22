@@ -481,8 +481,9 @@ def run_one_var_across_region():
 	indicator = st.sidebar.selectbox("Health / Economy Indicator", list(econ_indicators) + list(health_indicators))
 	uni_var_df = other_data_df[["Country Name", "Year", indicator, 'id', 'Latitude (average)', 'Longitude (average)']]
 
-	max_year = uni_var_df["Year"].max().item()
-	year = st.sidebar.select_slider("Year", options=list(np.sort(uni_var_df['Year'].unique())), value=max_year)
+	no_na_df = uni_var_df.dropna()
+	max_year = no_na_df["Year"].max().item()
+	year = st.sidebar.select_slider("Year", options=list(np.sort(no_na_df['Year'].unique())), value=max_year)
 	uni_var_one_year_df = uni_var_df[uni_var_df["Year"] == year]
 
 	if uni_var_one_year_df.dropna().empty:
