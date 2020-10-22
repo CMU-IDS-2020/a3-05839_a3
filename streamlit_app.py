@@ -138,11 +138,11 @@ def run_popu_dist():
 		ages = []
 		for _, data_row in only_ten.iterrows():
 			for i in range(len(age_ranges)):
-				values2.append(data_row['Population ages {} (% of total population)'.format(str(age_ranges[i]))])
+				values2.append(data_row['Population ages {} (% of total population)'.format(str(age_ranges[i]))] * data_row['Population, total'])
 				years2.append(data_row['Year'])
 				indexes.append(i)
 				ages.append(age_ranges[i])
-		overall_data = pd.DataFrame({'Idx': indexes, 'Population Ages': ages, 'Year': years2, '% of Total Population': values2})
+		overall_data = pd.DataFrame({'Idx': indexes, 'Population Ages': ages, 'Year': years2, 'Population': values2})
 		return overall_data  	
 
 	st.markdown('''
@@ -181,7 +181,7 @@ def run_popu_dist():
 	country_df = health_grouped[country]
 
 	max_year = country_df['Year'].max().item()
-	year = st.sidebar.select_slider("Year", options=list(np.sort(country_df['Year'].unique())), value=max_year)
+	year = st.sidebar.select_slider("Year", options=list(np.sort(country_df['Year'].que())), value=max_year)
 	by_gender = st.sidebar.checkbox('View By Gender', value=False)
 
 	# # plot based on the country, hack for not displaying the column index
@@ -204,7 +204,7 @@ def run_popu_dist():
 
 	area_graph = alt.Chart(only_ten).mark_area(opacity=0.4).encode(
 	    x=alt.X('Idx', title=None, axis=alt.Axis(ticks=True, grid=True, labels=False)),
-	    y=alt.Y('% of Total Population', stack=None),
+	    y=alt.Y('Population', stack=None),
 	    color=alt.Color("Year:N", scale=alt.Scale(scheme='lightmulti')),
 	    opacity=alt.condition(
 	    	keep_one,
@@ -224,7 +224,7 @@ def run_popu_dist():
 	st.markdown('''
 		The above graph visualizes the population age distribution of your selected country. 
 		The x-axis represents the age groups, in the order of increasing age;
-		the y-axis represents the percentage in the total population of the country.
+		the y-axis represents the number of people in this age group.
 
 		To see the general demographic changes of your selected country over years with ease,
 		the graph only shows data from 5 separate years, chosen with a nearly fixed interval. 
@@ -550,19 +550,6 @@ def run_trend_over_time():
 	data = data_cached.copy()
 	data['Year'] = pd.to_datetime(data['Year'], format='%Y')
 
-	# always plot the life expectancy
-	life_exp = alt.Chart(data).mark_line(size=4).encode(
-		x=alt.X('Year:T', 
-				 scale=alt.Scale(domain=(
-				 	pd.to_datetime('1960', format='%Y'),
-				 	pd.to_datetime('2017', format='%Y')
-				 )),
-				 axis = alt.Axis(title = 'Year', format = ("%Y"))),
-	    y='Life expectancy at birth, total (years)',
-	    color='Country Name',
-	    tooltip=['Country Name']
-	).properties(height=450)
-
 	# drop box to select one variable to view
 	st.sidebar.header("Adjust Parameters")
 
@@ -652,7 +639,28 @@ def run_trend_over_time():
 		''')
 
 	else:
-		st.altair_chart(life_exp, use_container_width=True)
+		country_filter = st.radio('', ('All', 'Top 5 as of 2017', 'Bottom 5 as of 2017'))
+		if country_filter == 'All':
+			countries_keep = countries
+		elif country_filter == 'Top 5 as of 2017':
+			countries_keep = data[data['Year'] == pd.to_datetime('2017', format='%Y')].sort_values('Life expectancy at birth, total (years)',ascending = False).head(5)['Country Name']
+		else:
+			countries_keep = data[data['Year'] == pd.to_datetime('2017', format='%Y')].sort_values('Life expectancy at birth, total (years)').head(5)['Country Name']
+
+		data = keep_only_selected_countries(data, countries_keep)
+		# always plot the life expectancy
+		life_exp = alt.Chart(data).mark_line(size=4).encode(
+			x=alt.X('Year:T', 
+					 scale=alt.Scale(domain=(
+					 	pd.to_datetime('1960', format='%Y'),
+					 	pd.to_datetime('2017', format='%Y')
+					 )),
+					 axis = alt.Axis(title = 'Year', format = ("%Y"))),
+		    y=alt.Y('Life expectancy at birth, total (years)', scale=alt.Scale(domain=(0, 90))),
+		    color='Country Name',
+		    tooltip=['Country Name']
+		)
+		st.altair_chart(life_exp.properties(height=450), use_container_width=True)
 		st.markdown('''
 			The above is a line graph of life expectancy at birth over time, where each line is a different country.
 			Most of the lines are mangled together as there are so many countries in the world. Instead of looking at the 
@@ -662,6 +670,10 @@ def run_trend_over_time():
 			If you find a particular line especially interesting, you will be able to see the name of the country 
 			corresponding to the line by moving your mouse over it.
 
+			We have provides two filter options to help you narrow down your exploration scope. The default 'All' will
+			show all countries on the graph; 'Top 5 as of 2017' will only keep 5 countries or regions with highest
+			life expectancy in 2017; similarly, 'Bottom 5 as of 2017' will only keep 5 countries or regions with least
+			life expectancy in 2017.
 		''')
 
 	st.markdown('''
