@@ -10,7 +10,7 @@ POPU_DIST = "Population Age Distribution"
 VAR_RELATIONSHIP_PER_COUNTRY = "Health & Economy Interaction, per Country"
 ONE_VAR_ACROSS_REGION = "Health / Economy over the World"
 SINGLE_FACTOR_OVER_TIME = 'Life Expectancies & Other Indicators'
-POINT2_PLACEHOLDER = 'Health & Economy Interaction, per Time'
+POINT2_PLACEHOLDER = 'Health & Economy Interaction, per Year'
 # locations of data
 HEALTH_URL = "https://raw.githubusercontent.com/CMU-IDS-2020/a3-05839_a3/master/data/health.csv"
 OTHER_DATA_URL = "https://raw.githubusercontent.com/CMU-IDS-2020/a3-05839_a3/master/data/merged_data_country_only_with_id_lat_lon.csv"
@@ -400,15 +400,22 @@ def run_var_relationship_per_country():
 	st.markdown('''
 	## How is an economy indicator associated with a health indicator for a specific country?
 	
-	In this section, we explore the relationship between any pair of a national economy indicator and a national health indicator over time. 
 	As argued in existing literature [1], "in the long term, growing economies are associated with longer and healthier lives," whereas
 	"in the short term, that may not be the case—economic booms can boost mortality rates and busts can reduce them." Thus, it is particularly
-	important and interesting to visualize the trends in economy and health of a country over a long period of time (in our case, data in the year range 1960-2020 is provided).
+	important and interesting to visualize the trends in economy and health of a country.
+	
+
+	In this section, we explore the relationship between any pair of a national economy indicator and a national health indicator over time. 
 	
 	## Let's look at the data
 	
-	Using the sidebar, you are free to choose 1) a specific country, 2) a economy indicator (one of Gini, GDP per capita, and unemployment rate),
-	and finally 3) a health indicator (one of health expenditure as % of GDP, health expenditure per capita, and life expectancy).
+	Using the sidebar, you are free to choose 
+
+	1. a specific country, 
+	2. a economy indicator (one of Gini, GDP per capita, and unemployment rate),
+	and finally 
+	3. a health indicator (one of health expenditure as % of GDP, health expenditure per capita, and life expectancy).
+	
 	This way, you can easily visualize the interaction between your selected pair of indicators. Each plot will have two y-axes correponding to each of the indicator.
 	
 	Our visualization is interactive. You can check out the specific value of an indicator in a specific year by moving your mouse over the desired point on a line.
@@ -492,7 +499,7 @@ def run_one_var_across_region():
 		st.write("Data Not Available")
 	else:
 		map = alt.Chart(countries).mark_geoshape().encode(
-			color=alt.Color(indicator+':Q', scale=alt.Scale(scheme="plasma"))
+			color=alt.Color(indicator+':Q', scale=alt.Scale(scheme="yellowgreenblue"))
 		).transform_lookup(
 			lookup='id',
 			from_=alt.LookupData(uni_var_one_year_df, 'id', [indicator])
@@ -668,6 +675,32 @@ def run_relationship_per_year_all_countries():
 	def get_by_year(df, year):
 		return df[df['Year'] == year]
 
+
+	st.markdown('''
+		## How is an economy indicator associated with a health indicator among diffrent countries?
+		
+		As argued in existing literature [1], "in the long term, growing economies are associated with longer and healthier lives," whereas
+		"in the short term, that may not be the case—economic booms can boost mortality rates and busts can reduce them." Thus, it is particularly
+		important and interesting to visualize the trends in economy and health of a country.
+
+		In this section, we explore the relationship between any pair of a national economy indicator and a national health indicator for a specific year,
+		among all countries. We also hope to show you if relationship between any of the two indicators exhibits some correlations to 
+		the life expactancy.
+		
+		## Let's look at the data
+		
+		Using the sidebar, you are free to choose 
+
+		1. a specific year, 
+		2. a economy indicator (one of Gini, GDP per capita, and unemployment rate),
+		and finally 
+		3. a health indicator (one of health expenditure as % of GDP and health expenditure per capita).
+		
+		This way, you can easily visualize the interaction between your selected pair of indicators.
+		
+		You can select a specific year to explore with the **slider** on the left side bar.
+	''')
+
 	st.sidebar.header("Adjust Parameters")
 
 	data, countries = load_merge_data()
@@ -679,7 +712,8 @@ def run_relationship_per_year_all_countries():
 
 	health_factors = ['Current health expenditure (% of GDP)',
 				       'Current health expenditure per capita (current US$)',
-				       'Life expectancy at birth, total (years)',]
+				       #'Life expectancy at birth, total (years)',
+				       ]
 
 	e_factor = st.sidebar.radio("Economics Factor", (econ_factors))
 	h_factor = st.sidebar.radio("Health Factor", (health_factors))
@@ -690,7 +724,7 @@ def run_relationship_per_year_all_countries():
 	year = st.sidebar.select_slider("Year", options=list(np.sort(curr_data['Year'].unique())), value=max_year)
 
 	curr_data = get_by_year(curr_data, year)
-	st.dataframe(curr_data[['Country Name', e_factor, h_factor]].assign(hack='').set_index('hack'))
+	#st.dataframe(curr_data[['Country Name', e_factor, h_factor]].assign(hack='').set_index('hack'))
 
 	# plot a auxilariy life expectancy graph below
 
@@ -702,23 +736,29 @@ def run_relationship_per_year_all_countries():
 	brush = alt.selection_interval(encodings=['x'])
 	highlight = alt.selection_single(encodings=['color'], on='mouseover', nearest=False, clear="mouseout")
 
-	stripplot = alt.Chart(curr_data).mark_circle(size=50).encode(
+	stripplot = alt.Chart(curr_data).mark_circle(size=40).encode(
 		x=alt.X('Life expectancy at birth, total (years):Q', 
 			scale=alt.Scale(domain=(min_life, max_life))
 		),
 		y=alt.Y('jitter:Q',
 	        title=None,
-	        axis=alt.Axis(values=[0], ticks=True, grid=False, labels=False),
+	        axis=alt.Axis(values=[0], ticks=False, grid=False, labels=False),
 	        scale=alt.Scale(),
 	    ),
 		color=alt.Color('Country Name', legend=None),
+		opacity=alt.condition(
+			highlight,
+			alt.value(0.7),
+			alt.value(0.1)
+		)
 	).transform_calculate(
 		# Generate Gaussian jitter with a Box-Muller transform
 		jitter='sqrt(-2*log(random()))*cos(2*PI*random())'
 	).properties(
 		width=700,
 		height=50
-	).add_selection(brush).transform_filter(highlight)
+	).add_selection(brush)
+	#.transform_filter(highlight)
 
 
 	# get max and min y
@@ -731,11 +771,36 @@ def run_relationship_per_year_all_countries():
 	    y=alt.Y(h_factor,
 	            scale=alt.Scale(domain=(miny, maxy))),
 	    color=alt.Color('Country Name', legend=None),
-	    tooltip=alt.Tooltip(['Country Name'])
+	    tooltip=alt.Tooltip(['Country Name', e_factor, h_factor])
 	).transform_filter(brush).properties(width=700).add_selection(highlight)
-	result = alt.vconcat(plot, stripplot)
+	result = alt.vconcat(stripplot, plot)
 
 	st.altair_chart(result, use_container_width=True)
+
+	st.markdown('''
+		The above graph consists of two charts. 
+		The upper chart displays a one dimensional graph of life expectancy (we added some jitters to the vertical
+		position of each data point, so that they are not clumped together).
+		The lower one displays a scatter plot of your selected indicators in the specific year for all countries. 
+		Its x-axis corresponds to your selected economics indicator, and the y axis corresponds to your selected 
+		health indicator.
+		For both subgraph, a dot represent one particular country. 
+
+		By moving your mouse on a specific dot (a specific country) on the lower chart, the name of the country, its exact values 
+		for the two indicators will be shown. Its corresponding life expectancy dot will be hightlighted in the 
+		upper chart. You can compare its relative position in both graph among all data points. 
+
+		You can also hold and drag to select a life expectancy interval in the upper graph. Only countries which has 
+		life expectancy at birth in this interval in the selected year will be shown on the lower chart. If you have 
+		already had an selection interval (shown with a gray backgroud), you can hold and drag the selection interval
+		to move it around, the lower chart will reflect the change while you shift the selection interval. Double clicking
+		on the upper chart will reset the selection interval.
+
+
+		### References
+		[1]
+		Austin B. Frakt (2018) - "How the Economy Affects Health". JAMA. 319(12):1187–1188. doi:10.1001/jama.2018.1739
+	''')
 
 if __name__ == "__main__":
     main()
