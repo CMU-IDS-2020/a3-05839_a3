@@ -478,11 +478,17 @@ def run_trend_over_time():
 	data['Year'] = pd.to_datetime(data['Year'], format='%Y')
 
 	# always plot the life expectancy
-	life_exp = alt.Chart(data).mark_line().encode(
-		x=alt.X('Year:T', axis = alt.Axis(title = 'Year', format = ("%Y"))),
+	life_exp = alt.Chart(data).mark_line(size=4).encode(
+		x=alt.X('Year:T', 
+				 scale=alt.Scale(domain=(
+				 	pd.to_datetime('1960', format='%Y'),
+				 	pd.to_datetime('2017', format='%Y')
+				 )),
+				 axis = alt.Axis(title = 'Year', format = ("%Y"))),
 	    y='Life expectancy at birth, total (years)',
-	    color='Country Name'
-	)
+	    color='Country Name',
+	    tooltip=['Country Name']
+	).properties(height=450)
 
 	# drop box to select one variable to view
 	st.sidebar.header("Adjust Parameters")
@@ -557,6 +563,14 @@ def run_trend_over_time():
 		st.altair_chart(result_plot, use_container_width=True)
 	else:
 		st.altair_chart(life_exp, use_container_width=True)
+
+	st.markdown('''
+		### References
+		[1]
+		Li, Y., Pan, A., Wang, D. D., Liu, X., Dhana, K., Franco, O. H., . . . Hu, F. B. (2018). 
+		Impact of Healthy Lifestyle Factors on Life Expectancies in the US Population. 
+		Circulation, 138(4), 345-355. doi:10.1161/circulationaha.117.032047
+	''')
 
 def run_relationship_per_year_all_countries():
 
