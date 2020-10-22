@@ -471,8 +471,6 @@ def run_one_var_across_region():
 	To start, first select an economy/health indicator of interest. Then, use the time slider to select a year of interest. If any data is available for the selected indicator and year, you will see
 	a world map whose coloring corresponds to magnitude of the indicator. To check out the indicator value for a particular country, move your mouse over the approximate location of the country on the map.
 	Slide over time to check out how the world-wide trend changed over time!
-	
-	Again, if no data is available for your selected indicator and year, "Data Not Available" will be displayed. Try out another pair of indicator and year!
 	''')
 	countries = alt.topo_feature(WORLD_MAP_URL, 'countries')
 	other_data_df, _, econ_indicators, health_indicators = load_other_data()
