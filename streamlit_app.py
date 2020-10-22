@@ -424,8 +424,8 @@ def run_var_relationship_per_country():
 	country = st.sidebar.selectbox("Country", countries)
 	country_df = other_data_df[other_data_df["Country Name"] == country]
 
-	econ_indicator = st.sidebar.selectbox("Economy Indicator", econ_indicators)
-	health_indicator = st.sidebar.selectbox("Health Indicator", health_indicators)
+	econ_indicator = st.sidebar.selectbox("Economy Indicator", econ_indicators, index = 1)
+	health_indicator = st.sidebar.selectbox("Health Indicator", health_indicators, index = 2)
 	bi_var_df = country_df[["Year", econ_indicator, health_indicator]]
 
 	if bi_var_df.dropna().empty:
@@ -465,6 +465,9 @@ def run_one_var_across_region():
 	In this section, we provide a snapshot of the world-wide trend of a particular indicator in the form of a world map. 
 	The previous sections allow you to gain an understanding in either trends of single/double variable(s) over time or trends of double variables across countries. 
 	This section provides a complementary visualization for trend of a single variable across countries.
+	
+	In this age, regional integration is not uncommon; we would expect a country to have similar economy status or health level to its neighboring countries.
+	Indeed, as argued in [1], "countries with open, large, and more developed neighboring economies grow faster than those with closed, smaller, and less developed neighboring economies."
 	
 	## Let's look at the data
 	
@@ -507,6 +510,10 @@ def run_one_var_across_region():
 		).add_selection(hover)
 		map = map + points
 		st.altair_chart(map, use_container_width=True)
+	st.markdown('''
+	### References
+	
+	[1] Athanasios Vamvakidis (1998) - "Regional Integration and Economic Growth". The World Bank Economic Review, Volume 12, Issue 2, May 1998, Pages 251–270, https://doi.org/10.1093/wber/12.2.251''')
 
 
 def run_trend_over_time():
