@@ -6,10 +6,10 @@ import math
 
 
 OVERVIEW = "Overview"
-POPU_DIST = "Population Age Distribution, Per Country"
+POPU_DIST = "Population Age Distribution"
 VAR_RELATIONSHIP_PER_COUNTRY = "Health & Economy Interaction, per Country"
 ONE_VAR_ACROSS_REGION = "Health / Economy over the World"
-SINGLE_FACTOR_OVER_TIME = 'What affects life expectancy?'
+SINGLE_FACTOR_OVER_TIME = 'Life Expectancies & Other Indicators'
 POINT2_PLACEHOLDER = 'Health & Economy Interaction, per Time'
 # locations of data
 HEALTH_URL = "https://raw.githubusercontent.com/CMU-IDS-2020/a3-05839_a3/master/data/health.csv"
@@ -47,6 +47,7 @@ def main():
 @st.cache
 def load_data(url):
     data = pd.read_csv(url, header=0, skipinitialspace=True)
+    data = data[data['Year'] <= 2017]
     countries = data['Country Name'].unique()
     return data, countries
 
@@ -145,7 +146,7 @@ def run_popu_dist():
 		return overall_data  	
 
 	st.markdown('''
-		## What's the relationship between population age distribution and health?
+		## Health through the lens of population age distribution
 
 		In this section, we will look at population age distribution of a specific country. 
 		Though this data might be affected by other factors like wars/regional conflicts, and willingness to birth,
@@ -511,7 +512,24 @@ def run_one_var_across_region():
 
 
 def run_trend_over_time():
+	st.markdown('''
+		## How is life expectancies associated with health indicators and economics indicators?
 
+
+		Having a healthy lifestyle can increase the life expectancy [1], and the trend in line expectancy
+		over time can refect the changes in population health conditions, health services adequacy.
+
+		In this seciton, we will explore the relationship between life expectancy and health expenditures
+		and economics indicators. 
+
+		## Let's see the data
+
+		To compare data for specific countries, can choose multiple countries in the **multi-selection box** on the left side bar. 
+		If no countries are selected, we will show you a graph of life expectancy over time for all countries.
+
+		Once you have selected one or more countries to focus on, you can choose an a additional indicator to explore its relationship with life expectancy over time, while
+		comparing among multiple countries from the **drop down menu** in the side bar.
+	''')
 	data_cached, countries = load_merge_data()
 	data = data_cached.copy()
 	data['Year'] = pd.to_datetime(data['Year'], format='%Y')
@@ -541,12 +559,14 @@ def run_trend_over_time():
 
 	factor = st.sidebar.selectbox("Additional Factors", factors)
 
-	selected_countries = st.sidebar.multiselect('Select Countries to compare', countries)
+	selected_countries = st.sidebar.multiselect('Select Countries to Compare', countries)
 
 	# plot factor countries over time
 	if selected_countries:
 
 		curr_df = keep_only_selected_countries(data, selected_countries)
+
+		curr_df = dropna_by_feature(curr_df, [factor, 'Life expectancy at birth, total (years)'])
 
 		line_p = alt.Chart(curr_df).mark_line().encode(
 		    x=alt.X('Year:T', axis = alt.Axis(title = 'Year', format = ("%Y"))),
@@ -600,8 +620,33 @@ def run_trend_over_time():
 			idx += 1
 		result_plot = alt.vconcat(result_plots[0], result_plots[1]) 
 		st.altair_chart(result_plot, use_container_width=True)
+		st.markdown('''
+			The above graph consists of two line charts. The upper one displays a line chart of your selected 
+			indicator for the selected countries over time. The lower chart, on the same time scale, displays 
+			the life expectancies of those countries. You can compare the trend and shape of your selected factor
+			with the line of life expectancy of one country; or you can compare the impact on life expectancy of difference in 
+			your selected indicator for several countries.
+
+			To make the comparison meaningful, the graph only shows a time range which we have both life expectancy
+			and the selected indicator data collected for the specified countries.
+
+			You can move your mouse on the upper graph, a verticle line displays the nearest year that your mouse 
+			points to, and the corresponding data points will be exaggrated with the exact y values to the right of the 
+			data point. The values are printed in the same color as its corresponding line.
+		''')
+
 	else:
 		st.altair_chart(life_exp, use_container_width=True)
+		st.markdown('''
+			The above is a line graph of life expectancy at birth over time, where each line is a different country.
+			Most of the lines are mangled together as there are so many countries in the world. Instead of looking at the 
+			lines of specific countries, we hope to provide you with a idea of a general increasing trend in life expectancy in 
+			the recent years in the world. 
+
+			If you find a particular line especially interesting, you will be able to see the name of the country 
+			corresponding to the line by moving your mouse over it.
+
+		''')
 
 	st.markdown('''
 		### References
