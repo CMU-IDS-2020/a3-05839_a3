@@ -10,7 +10,7 @@ POPU_DIST = "Population Age Distribution, Per Country"
 VAR_RELATIONSHIP_PER_COUNTRY = "Health & Economy Interaction, per Country"
 ONE_VAR_ACROSS_REGION = "Health / Economy over the World"
 SINGLE_FACTOR_OVER_TIME = 'What affects life expectancy?'
-POINT2_PLACEHOLDER = 'Health & Economy Interaction, over Time'
+POINT2_PLACEHOLDER = 'Health & Economy Interaction, per Time'
 # locations of data
 HEALTH_URL = "https://raw.githubusercontent.com/CMU-IDS-2020/a3-05839_a3/master/data/health.csv"
 OTHER_DATA_URL = "https://raw.githubusercontent.com/CMU-IDS-2020/a3-05839_a3/master/data/merged_data_country_only_with_id_lat_lon.csv"
@@ -147,19 +147,19 @@ def run_popu_dist():
 	st.markdown('''
 		## What's the relationship between population age distribution and health?
 
-		In this section, we will look at population age distribution of a specifc country. 
+		In this section, we will look at population age distribution of a specific country. 
 		Though this data might be affected by other factors like wars/regional conflicts, and willingness to birth,
 		it is still a good indicator of population health and health service quality in a country.
 
 		We have observed a general demographic shift in the past few decades, where the percentage of young dependents drops,
 		and mid-ages increase [1]. Since world population has also been skyrocketting [2] and fertility rate dropping [3] in the same time frame, 
 		the changes in the population distribution would suggest that population increases usually for all age groups, 
-		and popluation with mid to old ages has the steepest upward trend. We are now having less 
-		mortalities from some health threats like infectious and parasitic diseases which haughted the world in the past; 
-		mortality rate also decreases for major desseases [3].
+		and population with mid to old ages has the steepest upward trend. We are now having less 
+		mortalities from some health threats like infectious and parasitic diseases which haunted the world in the past; 
+		mortality rate also decreases for major diseases [3].
 
 		The changes in the population age distribution, where mid-to-old age population has a smaller
-		gap with young population, suggest that we are having a healther population [1].
+		gap with young population, suggest that we are having a healthier population [1].
 
 		## Let's look at the data
 
@@ -225,16 +225,16 @@ def run_popu_dist():
 		The x-axis represents the age groups, in the order of increasing age;
 		the y-axis represents the percentage in the total population of the country.
 
-		To see the genral demographic changes of your selected country over years with ease,
-		the graph only shows data from 5 seperate years, choosen with a nearly fixed interval. 
+		To see the general demographic changes of your selected country over years with ease,
+		the graph only shows data from 5 separate years, chosen with a nearly fixed interval. 
 
-		You can click on the legend of see area plot from a specific year. 
+		You can click on the legend to see area plot from a specific year. 
 		Clicking on other parts of the graph will reset the selection and show graphs of all five years.
 		
 
 
 
-		For the sepecific country you have just selected, you can also choose to look at a specif year
+		For the specific country you have just selected, you can also choose to look at a specific year
 		by sliding the **slider** on the side bar. You will have more options to choose from, other than the 
 		5 sample years on the area graph.
 	''')
@@ -302,8 +302,8 @@ def run_popu_dist():
 		we are hoping that you can more clearly see the percentages' change over time as you are sliding the time
 		slider.
 
-		If the median age falls in an age group, the corresponding bar will have a darker backgroud and the word 'median' 
-		on top. The median may help you get a better concept of the overal distribution, as this graph can be highly screwed
+		If the median age falls in an age group, the corresponding bar will have a darker background and the word 'median' 
+		on top. The median may help you get a better concept of the overall distribution, as this graph can be highly screwed
 		towards the origin.
 
 		By moving your mouse over a bar, you will see the exact percentage of this age group in the total population. 
@@ -396,6 +396,26 @@ def run_popu_dist():
 
 
 def run_var_relationship_per_country():
+	st.markdown('''
+	## How is an economy indicator associated with a health indicator for a specific country?
+	
+	In this section, we explore the relationship between any pair of a national economy indicator and a national health indicator over time. 
+	As argued in existing literature [1], "in the long term, growing economies are associated with longer and healthier lives," whereas
+	"in the short term, that may not be the case—economic booms can boost mortality rates and busts can reduce them." Thus, it is particularly
+	important and interesting to visualize the trends in economy and health of a country over a long period of time (in our case, data in the year range 1960-2020 is provided).
+	
+	## Let's look at the data
+	
+	Using the sidebar, you are free to choose 1) a specific country, 2) a economy indicator (one of Gini, GDP per capita, and unemployment rate),
+	and finally 3) a health indicator (one of health expenditure as % of GDP, health expenditure per capita, and life expectancy).
+	This way, you can easily visualize the interaction between your selected pair of indicators. Each plot will have two y-axes correponding to each of the indicator.
+	
+	Our visualization is interactive. You can check out the specific value of an indicator in a specific year by moving your mouse over the desired point on a line.
+	In addition, you can drag the graph to adjust the time range. Finally, you can use your touchpad to zoom in or zoom out. Again, double clicking will reset the plot.
+	
+	Please note that the original data has many missing entries. When there is no data for either indicator in the selected pair for the selected country, 
+	we cannot generate a visualization for you, as indicated by "Data Not Available." Please try another pair of indicators.
+	''')
 	df, countries, econ_indicators, health_indicators = load_other_data()
 	other_data_df = df.copy()
 	other_data_df['Year'] = pd.to_datetime(other_data_df['Year'], format='%Y')
@@ -432,9 +452,28 @@ def run_var_relationship_per_country():
 			y='independent'
 		)
 		st.altair_chart(line_plot, use_container_width=True)
-
+	st.markdown('''
+				### References
+				[1]
+				Austin B. Frakt (2018) - "How the Economy Affects Health". JAMA. 319(12):1187–1188. doi:10.1001/jama.2018.1739
+			''')
 
 def run_one_var_across_region():
+	st.markdown('''
+	## What's the world-wide trend of a particular indicator?
+	
+	In this section, we provide a snapshot of the world-wide trend of a particular indicator in the form of a world map. 
+	The previous sections allow you to gain an understanding in either trends of single/double variable(s) over time or trends of double variables across countries. 
+	This section provides a complementary visualization for trend of a single variable across countries.
+	
+	## Let's look at the data
+	
+	To start, first select an economy/health indicator of interest. Then, use the time slider to select a year of interest. If any data is available for the selected indicator and year, you will see
+	a world map whose coloring corresponds to magnitude of the indicator. To check out the indicator value for a particular country, move your mouse over the approximate location of the country on the map.
+	Slide over time to check out how the world-wide trend changed over time!
+	
+	Again, if no data is available for your selected indicator and year, "Data Not Available" will be displayed. Try out another pair of indicator and year!
+	''')
 	countries = alt.topo_feature(WORLD_MAP_URL, 'countries')
 	other_data_df, _, econ_indicators, health_indicators = load_other_data()
 	st.sidebar.header("Adjust Parameters")
