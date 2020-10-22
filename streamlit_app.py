@@ -163,6 +163,9 @@ def run_popu_dist():
 
 		## Let's look at the data
 
+		You are free to adjust the parameters in the left side bar now,
+		but we will also walk you through these options through the explanations below.
+
 		You can select a country from **drop down menu** in the side bar. 
 
 	''')
@@ -366,6 +369,13 @@ def run_popu_dist():
 
 		bihist=alt.concat(left, middle, right, spacing=2).resolve_scale(color='independent')
 		st.altair_chart(bihist, use_container_width=True)
+
+		st.markdown('''
+			This is a classic age structure pyramid graph. The left side of the graph is the age population 
+			distribution of female in the selected year of this country. By moving your mouse over a bar, 
+			you will see the exact percentage of this age group in its gender population. 
+			This bar and the bar of the same age group from the other gender will also be highlighted orange.
+		''')
 
 	st.markdown('''
 		
