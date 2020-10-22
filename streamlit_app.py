@@ -425,8 +425,8 @@ def run_var_relationship_per_country():
 	country = st.sidebar.selectbox("Country", countries)
 	country_df = other_data_df[other_data_df["Country Name"] == country]
 
-	econ_indicator = st.sidebar.selectbox("Economy Indicator", econ_indicators)
-	health_indicator = st.sidebar.selectbox("Health Indicator", health_indicators)
+	econ_indicator = st.sidebar.selectbox("Economy Indicator", econ_indicators, index = 1)
+	health_indicator = st.sidebar.selectbox("Health Indicator", health_indicators, index = 2)
 	bi_var_df = country_df[["Year", econ_indicator, health_indicator]]
 
 	if bi_var_df.dropna().empty:
@@ -467,13 +467,14 @@ def run_one_var_across_region():
 	The previous sections allow you to gain an understanding in either trends of single/double variable(s) over time or trends of double variables across countries. 
 	This section provides a complementary visualization for trend of a single variable across countries.
 	
+	In this age, regional integration is not uncommon; we would expect a country to have similar economy status or health level to its neighboring countries.
+	Indeed, as argued in [1], "countries with open, large, and more developed neighboring economies grow faster than those with closed, smaller, and less developed neighboring economies."
+	
 	## Let's look at the data
 	
 	To start, first select an economy/health indicator of interest. Then, use the time slider to select a year of interest. If any data is available for the selected indicator and year, you will see
 	a world map whose coloring corresponds to magnitude of the indicator. To check out the indicator value for a particular country, move your mouse over the approximate location of the country on the map.
 	Slide over time to check out how the world-wide trend changed over time!
-	
-	Again, if no data is available for your selected indicator and year, "Data Not Available" will be displayed. Try out another pair of indicator and year!
 	''')
 	countries = alt.topo_feature(WORLD_MAP_URL, 'countries')
 	other_data_df, _, econ_indicators, health_indicators = load_other_data()
@@ -482,8 +483,9 @@ def run_one_var_across_region():
 	indicator = st.sidebar.selectbox("Health / Economy Indicator", list(econ_indicators) + list(health_indicators))
 	uni_var_df = other_data_df[["Country Name", "Year", indicator, 'id', 'Latitude (average)', 'Longitude (average)']]
 
-	max_year = uni_var_df["Year"].max().item()
-	year = st.sidebar.select_slider("Year", options=list(np.sort(uni_var_df['Year'].unique())), value=max_year)
+	no_na_df = uni_var_df.dropna()
+	max_year = no_na_df["Year"].max().item()
+	year = st.sidebar.select_slider("Year", options=list(np.sort(no_na_df['Year'].unique())), value=max_year)
 	uni_var_one_year_df = uni_var_df[uni_var_df["Year"] == year]
 
 	if uni_var_one_year_df.dropna().empty:
@@ -509,6 +511,10 @@ def run_one_var_across_region():
 		).add_selection(hover)
 		map = map + points
 		st.altair_chart(map, use_container_width=True)
+	st.markdown('''
+	### References
+	
+	[1] Athanasios Vamvakidis (1998) - "Regional Integration and Economic Growth". The World Bank Economic Review, Volume 12, Issue 2, May 1998, Pages 251–270, https://doi.org/10.1093/wber/12.2.251''')
 
 
 def run_trend_over_time():
