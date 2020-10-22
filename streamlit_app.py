@@ -2,19 +2,22 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import altair as alt
+import math
 
 
 OVERVIEW = "Overview"
-POPU_DIST = "Population Distribution by Country"
+POPU_DIST = "Population Age Distribution, Per Country"
 VAR_RELATIONSHIP_PER_COUNTRY = "Health & Economy Interaction, per Country"
 ONE_VAR_ACROSS_REGION = "Health / Economy over the World"
 SINGLE_FACTOR_OVER_TIME = 'What affects life expectancy?'
-POINT2_PLACEHOLDER = 'Point2 Graph'
+POINT2_PLACEHOLDER = 'Health & Economy Interaction, over Time'
 # locations of data
 HEALTH_URL = "https://raw.githubusercontent.com/CMU-IDS-2020/a3-05839_a3/master/data/health.csv"
 OTHER_DATA_URL = "https://raw.githubusercontent.com/CMU-IDS-2020/a3-05839_a3/master/data/merged_data_country_only_with_id_lat_lon.csv"
 MERGED_URL = "https://raw.githubusercontent.com/CMU-IDS-2020/a3-05839_a3/master/data/merged_data_country_only.csv"
 WORLD_MAP_URL = "https://raw.githubusercontent.com/vega/vega-datasets/master/data/world-110m.json"
+# locations of markdowns
+
 
 def main():
 	# Add a selector for the app mode on the sidebar.
@@ -105,7 +108,64 @@ def run_popu_dist():
 		        curr_max = health_df[col].max()
 		        if curr_max > maxy:
 		            maxy = curr_max	
-		return maxy            
+		return maxy 
+
+	@st.cache
+	def get_only_tens(country_df):
+		years = list(np.sort(country_df['Year'].unique()))
+		# get selection interval
+		interval = math.floor(len(years) / 5)
+		if interval == 0:
+			only_ten = country_df
+		else:
+			temp = []
+			idx = len(years) - 1
+			count = 0
+			while idx > 0 and count < 5:
+				temp.append(years[idx])
+				idx -= interval
+				count += 1
+			only_ten = country_df[country_df['Year'].isin(temp)]
+		return only_ten	
+
+	@st.cache
+	def get_only_ten_general(country_df, age_ranges):
+		only_ten = get_only_tens(country_df)
+		values2 = []
+		years2 = []
+		indexes = []
+		ages = []
+		for _, data_row in only_ten.iterrows():
+			for i in range(len(age_ranges)):
+				values2.append(data_row['Population ages {} (% of total population)'.format(str(age_ranges[i]))])
+				years2.append(data_row['Year'])
+				indexes.append(i)
+				ages.append(age_ranges[i])
+		overall_data = pd.DataFrame({'Idx': indexes, 'Population Ages': ages, 'Year': years2, '% of Total Population': values2})
+		return overall_data  	
+
+	st.markdown('''
+		## What's the relationship between population age distribution and health?
+
+		In this section, we will look at population age distribution of a specifc country. 
+		Though this data might be affected by other factors like wars/regional conflicts, and willingness to birth,
+		it is still a good indicator of population health and health service quality in a country.
+
+		We have observed a general demographic shift in the past few decades, where the percentage of young dependents drops,
+		and mid-ages increase [1]. Since world population has also been skyrocketting [2] and fertility rate dropping [3] in the same time frame, 
+		the changes in the population distribution would suggest that population increases usually for all age groups, 
+		and popluation with mid to old ages has the steepest upward trend. We are now having less 
+		mortalities from some health threats like infectious and parasitic diseases which haughted the world in the past; 
+		mortality rate also decreases for major desseases [3].
+
+		The changes in the population age distribution, where mid-to-old age population has a smaller
+		gap with young population, suggest that we are having a healther population [1].
+
+		## Let's look at the data
+
+		You can select a country from **drop down menu** in the side bar. 
+
+	''')
 
 	# load health data
 	health_df, countries = load_health_data()
@@ -116,10 +176,9 @@ def run_popu_dist():
 	country = st.sidebar.selectbox("Country", countries)
 	country_df = health_grouped[country]
 
-	by_gender = st.sidebar.checkbox('View By Gender', value=False)
-
 	max_year = country_df['Year'].max().item()
 	year = st.sidebar.select_slider("Year", options=list(np.sort(country_df['Year'].unique())), value=max_year)
+	by_gender = st.sidebar.checkbox('View By Gender', value=False)
 
 	# # plot based on the country, hack for not displaying the column index
 	# st.dataframe(country_df.assign(hack='').set_index('hack'))
@@ -127,81 +186,203 @@ def run_popu_dist():
 	# plot the histogram base on country and year
 	row = country_df.loc[country_df['Year'] == year]
 
+	percentage_max = get_total_ymax(country_df, health_df)
+	age_ranges_overall = ['0-14', '15-19', '20-24', '25-29', '30-34', '35-39', '40-44', '45-49', '50-54', '55-59', '60-64', '65-69', '70-74', '75-79', '80 and above']
+	values_overall = []
+	for r in age_ranges_overall:
+		values_overall.append(row['Population ages {} (% of total population)'.format(r)].item())
+	curr_data_overall = pd.DataFrame({'Population Ages': age_ranges_overall, '% of Total Population': values_overall})
+
+	# the layered area graph
+	only_ten = get_only_ten_general(country_df, age_ranges_overall)
+	# highlight selector
+	keep_one = alt.selection_single(fields=['Year'], bind='legend', nearest=False, empty='all')
+
+	area_graph = alt.Chart(only_ten).mark_area(opacity=0.4).encode(
+	    x=alt.X('Idx', title=None, axis=alt.Axis(ticks=True, grid=True, labels=False)),
+	    y=alt.Y('% of Total Population', stack=None),
+	    color=alt.Color("Year:N", scale=alt.Scale(scheme='lightmulti')),
+	    opacity=alt.condition(
+	    	keep_one,
+	    	alt.value(0.4),
+	    	alt.value(0)
+	    )
+	).add_selection(keep_one)
+
+
+	xaxis = alt.Chart(only_ten).mark_point().encode(
+	    x=alt.X('Population Ages', axis=alt.Axis(ticks=False, grid=False)),
+	    opacity=alt.value(0),
+	)
+
+	st.altair_chart(alt.layer(xaxis, area_graph), use_container_width=True)
+
+	st.markdown('''
+		The above graph visualizes the population age distribution of your selected country. 
+		The x-axis represents the age groups, in the order of increasing age;
+		the y-axis represents the percentage in the total population of the country.
+
+		To see the genral demographic changes of your selected country over years with ease,
+		the graph only shows data from 5 seperate years, choosen with a nearly fixed interval. 
+
+		You can click on the legend of see area plot from a specific year. 
+		Clicking on other parts of the graph will reset the selection and show graphs of all five years.
+		
+
+
+
+		For the sepecific country you have just selected, you can also choose to look at a specif year
+		by sliding the **slider** on the side bar. You will have more options to choose from, other than the 
+		5 sample years on the area graph.
+	''')
+
+	# get median
+	median = curr_data_overall['% of Total Population'].sum() / 2.0
+	p_agg = 0.0
+	for _, data_row in curr_data_overall.iterrows():
+		prev_p_agg = p_agg
+		p_agg += data_row['% of Total Population']
+		if p_agg >= median:
+			median_age_range = data_row['Population Ages']
+			break			
+
+	# highlight selector
+	highlight = alt.selection_single(on='mouseover', fields=['Population Ages'], nearest=False, clear="mouseout")
+
+	hist = alt.Chart(curr_data_overall).mark_bar().encode(
+	    y=alt.Y('% of Total Population',
+	    	scale=alt.Scale(domain=(0, percentage_max))),
+	    x='Population Ages',
+	    color=alt.condition(
+	        ~highlight,
+	        alt.Color('Population Ages:O', scale=alt.Scale(scheme='greens'), legend=None),
+	        alt.value('orange'),     # which sets the bar orange.
+	    ),
+	    tooltip=['Population Ages', '% of Total Population']
+	).add_selection(highlight).interactive()
+
+	hist_background = alt.Chart(curr_data_overall).mark_bar().encode(
+	    y=alt.Y('background_height:Q',
+	    	scale=alt.Scale(domain=(0, percentage_max)),
+	    	title='% of Total Population'),
+	    x=alt.X('Population Ages'),
+	    color=alt.condition(
+	        alt.datum['Population Ages'] == median_age_range,
+	        alt.value('lightgray'),
+	        alt.value('white')
+	    ),
+	    opacity=alt.condition(
+	        alt.datum['Population Ages'] == median_age_range,
+	        alt.value(0.2),
+	        alt.value(0.0)
+	    ),
+	).transform_calculate(
+		background_height = "100"
+	)
+
+	text = alt.Chart(curr_data_overall).mark_text(
+	    align='left',
+	    baseline='middle',
+	    dy=-10,
+	    dx=-15
+	).encode(
+		y=alt.Y('% of Total Population'),
+	    x='Population Ages',
+		text=alt.condition(alt.datum['Population Ages'] == median_age_range, alt.value('median'), alt.value(' '))
+	)
+	st.altair_chart(alt.layer(hist_background, hist, text), use_container_width=True)
+
+	st.markdown('''
+		This is a bar chart displaying the detailed population distribution of your selected country in one specific year.
+		Same as the previous graph, the x-axis shows the population age group, and the y-axis show the percentage.
+		The y-axis upper limit is the max age group percentage of this country. By fixing the scale of y-axis, 
+		we are hoping that you can more clearly see the percentages' change over time as you are sliding the time
+		slider.
+
+		If the median age falls in an age group, the corresponding bar will have a darker backgroud and the word 'median' 
+		on top. The median may help you get a better concept of the overal distribution, as this graph can be highly screwed
+		towards the origin.
+
+		By moving your mouse over a bar, you will see the exact percentage of this age group in the total population. 
+		This bar will also be highlighted orange. You can zoom and rescale the chart with two fingers; drag and hold 
+		on the graph canvas will shift the plotting area. Double clicking on the graph will reset the graph.
+
+		You can view population distribution of the selected year of this country by gender. By checking the
+		'View by Gender' **checkbox** on the side bar, you can view the population distribution pyramid graph.
+	''')
+
 	if by_gender:
-		age_ranges = ['15-19', '20-24', '25-29', '30-34', '35-39', '40-44', '45-49', '50-54', '55-59', '60-64', '65-69', '70-74', '75-79', '80 and above']
+		age_ranges = ['80 and above', '75-79', '70-74', '65-69', '60-64', '55-59', '50-54', '45-49', '40-44', '35-39', '30-34', '25-29', '20-24', '15-19']
 		male_values = []
 		female_values = []
 		for r in age_ranges:
 			male_values.append(row['Population ages {}, male (% of male population)'.format(r)].item())
 			female_values.append(row['Population ages {}, female (% of female population)'.format(r)].item())
-		
 		curr_data = pd.DataFrame({'Population ages': age_ranges, '% of Male Population': male_values, '% of Female Population': female_values})
+		
+		# write current data
+		#st.dataframe(curr_data.iloc[::-1].assign(hack='').set_index('hack'))
+
 		maxx = curr_data['% of Male Population'].max()
 		if curr_data['% of Female Population'].max().item() > maxx:
 			maxx = curr_data['% of Female Population'].max()
 
-		base = alt.Chart(curr_data).properties(width=300)
+		base2 = alt.Chart(curr_data).properties(width=300)
 		# highlight selector
-		highlight = alt.selection_single(on='mouseover', fields=['Population ages'], nearest=False, clear="mouseout")
+		highlight2 = alt.selection_single(on='mouseover', fields=['Population ages'], nearest=False, clear="mouseout")
 
-		left = base.encode(
-		    y=alt.Y('Population ages', axis=None),
+		left = base2.encode(
+		    y=alt.Y('Population ages:O', axis=None, sort=alt.EncodingSortField(order='ascending')),
 		    x=alt.X('% of Female Population',
 		            title='% of Female Population',
 		            sort=alt.SortOrder('descending'),
 		            scale=alt.Scale(domain=(0, maxx))),
 		    color=alt.condition(
-		        ~highlight,
+		        ~highlight2,
 		        alt.Color('Population ages:O', scale=alt.Scale(scheme='redpurple'), legend=None),
 		        alt.value('orange'),     # which sets the bar orange.
 		    ),
 		    tooltip=['Population ages', '% of Female Population']
-		).mark_bar().properties(title='Female').interactive().add_selection(highlight)
+		).mark_bar().properties(title='Female').add_selection(highlight2)
 
-		middle = base.encode(
-		    y=alt.Y('Population ages', axis=None),
+		middle = base2.encode(
+		    y=alt.Y('Population ages:O', axis=None, sort=alt.EncodingSortField(order='ascending')),
 		    text=alt.Text('Population ages'),
 		).mark_text().properties(width=40)
 
-		right = base.encode(
-		    y=alt.Y('Population ages', axis=None),
+		right = base2.encode(
+		    y=alt.Y('Population ages:O', axis=None, sort=alt.EncodingSortField(order='ascending')),
 		    x=alt.X('% of Male Population',
 		            title='% of Male Population',
 		            sort=alt.SortOrder('ascending'),
 		            scale=alt.Scale(domain=(0, maxx))),
 		    color=alt.condition(
-		        ~highlight,
+		        ~highlight2,
 		        alt.Color('Population ages:O',scale=alt.Scale(scheme='blues'), legend=None),
 		        alt.value('orange'),     # which sets the bar orange.
 		    ),
 		    tooltip=['Population ages', '% of Male Population']
-		).mark_bar().properties(title='Male').interactive().add_selection(highlight)
+		).mark_bar().properties(title='Male').add_selection(highlight2)
 
 		bihist=alt.concat(left, middle, right, spacing=2).resolve_scale(color='independent')
 		st.altair_chart(bihist, use_container_width=True)
 
-	else:
-		age_ranges = ['0-14', '15-19', '20-24', '25-29', '30-34', '35-39', '40-44', '45-49', '50-54', '55-59', '60-64', '65-69', '70-74', '75-79', '80 and above']
-		values = []
-		for r in age_ranges:
-			values.append(row['Population ages {} (% of total population)'.format(r)].item())
-		curr_data = pd.DataFrame({'Population ages': age_ranges, '% of Total Population': values})
+	st.markdown('''
+		
+		### References
+		[1]
+		Hannah Ritchie (2019) - "Age Structure". 
+		Published online at OurWorldInData.org. 
+		Retrieved from: 'https://ourworldindata.org/age-structure' [Online Resource]
 
-		# highlight selector
-		highlight = alt.selection_single(on='mouseover', fields=['Population ages'], nearest=False, clear="mouseout")
+		[2]
+		Max Roser, Hannah Ritchie and Esteban Ortiz-Ospina (2013) - "World Population Growth". 
+		Published online at OurWorldInData.org. 
+		Retrieved from: 'https://ourworldindata.org/world-population-growth' [Online Resource]
 
-		hist = alt.Chart(curr_data).mark_bar().encode(
-		    alt.X('% of Total Population',
-		    	scale=alt.Scale(domain=(0, get_total_ymax(country_df, health_df)))),
-		    y='Population ages',
-		    color=alt.condition(
-		        ~highlight,
-		        alt.Color('Population ages:O', scale=alt.Scale(scheme='greens'), legend=None),
-		        alt.value('orange'),     # which sets the bar orange.
-		    ),
-		    tooltip=['Population ages', '% of Total Population']
-		).interactive().add_selection(highlight)
-		st.altair_chart(hist, use_container_width=True)
+		[3]
+		Global Health and Aging [PDF]. (2011, October). The World Health Organization.
+	''')	
 
 
 def run_var_relationship_per_country():
