@@ -190,7 +190,7 @@ def run_popu_dist():
 	country_df = health_grouped[country]
 
 	max_year = country_df['Year'].max().item()
-	year = st.sidebar.select_slider("Year", options=list(np.sort(country_df['Year'].que())), value=max_year)
+	year = st.sidebar.select_slider("Year", options=list(np.sort(country_df['Year'].unique())), value=max_year)
 	by_gender = st.sidebar.checkbox('View By Gender', value=False)
 
 	# # plot based on the country, hack for not displaying the column index
@@ -678,7 +678,7 @@ def run_trend_over_time():
 			If you find a particular line especially interesting, you will be able to see the name of the country 
 			corresponding to the line by moving your mouse over it.
 
-			We have provides two filter options to help you narrow down your exploration scope. The default 'All' will
+			We have provided two filter options to help you narrow down your exploration scope. The default 'All' will
 			show all countries on the graph; 'Top 5 as of 2017' will only keep 5 countries or regions with highest
 			life expectancy in 2017; similarly, 'Bottom 5 as of 2017' will only keep 5 countries or regions with least
 			life expectancy in 2017.
