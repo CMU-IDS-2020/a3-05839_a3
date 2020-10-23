@@ -26,7 +26,16 @@ def main():
 		(str(OVERVIEW), str(POPU_DIST), str(SINGLE_FACTOR_OVER_TIME) , str(POINT2_PLACEHOLDER), str(VAR_RELATIONSHIP_PER_COUNTRY), str(ONE_VAR_ACROSS_REGION)))
 	if vis_topic == OVERVIEW:
 		# Render main readme, placeholder
-		readme_text = st.markdown("readme.md")
+		st.title(OVERVIEW)
+		st.markdown('''
+		National economic status and health level are crucial indicators of a country’s development. 
+		Our interactive application aims to tell stories about worldwide and historical patterns, 
+		using comprehensive data on various indicators from the World Bank. 
+		With our application, you can explore the trend of an individual economy or health indicator, the relationship between an economy indicator and a health indicator, as well as a country’s population age distribution. 
+		The visualizations, for each of which detailed instructions are provided, should allow you to explore these trends both temporally and spatially. 
+		Through the visualizations, we hope you can get insights in economy and population health among countries over the past few decades, 
+		and correlations of economy and health indicators, if any.
+''')
 	elif vis_topic == POPU_DIST:
 		st.title(POPU_DIST)
 		run_popu_dist()
@@ -416,7 +425,7 @@ def run_var_relationship_per_country():
 	and finally 
 	3. a health indicator (one of health expenditure as % of GDP, health expenditure per capita, and life expectancy).
 	
-	This way, you can easily visualize the interaction between your selected pair of indicators. Each plot will have two y-axes correponding to each of the indicator.
+	This way, you can easily visualize the interaction between your selected pair of indicators. Each plot will have two y-axes correponding to each of the indicators.
 	
 	Our visualization is interactive. You can check out the specific value of an indicator in a specific year by moving your mouse over the desired point on a line.
 	In addition, you can drag the graph to adjust the time range. Finally, you can use your touchpad to zoom in or zoom out. Again, double clicking will reset the plot.
@@ -481,7 +490,7 @@ def run_one_var_across_region():
 	
 	To start, first select an economy/health indicator of interest. Then, use the time slider to select a year of interest. If any data is available for the selected indicator and year, you will see
 	a world map whose coloring corresponds to magnitude of the indicator. To check out the indicator value for a particular country, move your mouse over the approximate location of the country on the map.
-	Slide over time to check out how the world-wide trend changed over time!
+	Slide over time to check out how the world-wide trend changed temporally!
 	''')
 	countries = alt.topo_feature(WORLD_MAP_URL, 'countries')
 	other_data_df, _, econ_indicators, health_indicators = load_other_data()
@@ -529,22 +538,22 @@ def run_one_var_across_region():
 
 def run_trend_over_time():
 	st.markdown('''
-		## How is life expectancies associated with health indicators and economics indicators?
+		## How is life expectancy associated with health indicators and economics indicators?
 
 
-		Having a healthy lifestyle can increase the life expectancy [1], and the trend in line expectancy
-		over time can refect the changes in population health conditions, health services adequacy.
+		Having a healthy lifestyle can increase the life expectancy [1], and the trend in life expectancy
+		over time can reflect the changes in population health conditions and health services adequacy.
 
 		In this seciton, we will explore the relationship between life expectancy and health expenditures
 		and economics indicators. 
 
 		## Let's see the data
 
-		To compare data for specific countries, can choose multiple countries in the **multi-selection box** on the left side bar. 
+		To compare data for specific countries, you can choose multiple countries in the **multi-selection box** on the left sidebar. 
 		If no countries are selected, we will show you a graph of life expectancy over time for all countries.
 
-		Once you have selected one or more countries to focus on, you can choose an a additional indicator to explore its relationship with life expectancy over time, while
-		comparing among multiple countries from the **drop down menu** in the side bar.
+		Once you have selected one or more countries to focus on, you can choose from the **drop down menu** in the sidebar an additional indicator to explore its relationship with life expectancy over time, while
+		comparing among multiple countries.
 	''')
 	data_cached, countries = load_merge_data()
 	data = data_cached.copy()
@@ -640,13 +649,12 @@ def run_trend_over_time():
 			The above graph consists of two line charts. The upper one displays a line chart of your selected 
 			indicator for the selected countries over time. The lower chart, on the same time scale, displays 
 			the life expectancies of those countries. You can compare the trend and shape of your selected factor
-			with the line of life expectancy of one country; or you can compare the impact on life expectancy of difference in 
-			your selected indicator for several countries.
+			with the line of life expectancy for one country or multiple countries.
 
 			To make the comparison meaningful, the graph only shows a time range which we have both life expectancy
 			and the selected indicator data collected for the specified countries.
 
-			You can move your mouse on the upper graph, a verticle line displays the nearest year that your mouse 
+			You can move your mouse on the upper graph, a vertical line displays the nearest year that your mouse 
 			points to, and the corresponding data points will be exaggrated with the exact y values to the right of the 
 			data point. The values are printed in the same color as its corresponding line.
 		''')
@@ -656,7 +664,7 @@ def run_trend_over_time():
 		st.markdown('''
 			The above is a line graph of life expectancy at birth over time, where each line is a different country.
 			Most of the lines are mangled together as there are so many countries in the world. Instead of looking at the 
-			lines of specific countries, we hope to provide you with a idea of a general increasing trend in life expectancy in 
+			lines of specific countries, we hope to provide you with an idea of a general increasing trend in life expectancy in 
 			the recent years in the world. 
 
 			If you find a particular line especially interesting, you will be able to see the name of the country 
@@ -667,8 +675,8 @@ def run_trend_over_time():
 	st.markdown('''
 		### References
 		[1]
-		Li, Y., Pan, A., Wang, D. D., Liu, X., Dhana, K., Franco, O. H., . . . Hu, F. B. (2018). 
-		Impact of Healthy Lifestyle Factors on Life Expectancies in the US Population. 
+		Li, Y., Pan, A., Wang, D. D., Liu, X., Dhana, K., Franco, O. H., Hu, F. B. (2018) -  
+		"Impact of Healthy Lifestyle Factors on Life Expectancies in the US Population." 
 		Circulation, 138(4), 345-355. doi:10.1161/circulationaha.117.032047
 	''')
 
@@ -680,7 +688,7 @@ def run_relationship_per_year_all_countries():
 
 
 	st.markdown('''
-		## How is an economy indicator associated with a health indicator among diffrent countries?
+		## How is an economy indicator associated with a health indicator among different countries?
 		
 		As argued in existing literature [1], "in the long term, growing economies are associated with longer and healthier lives," whereas
 		"in the short term, that may not be the case—economic booms can boost mortality rates and busts can reduce them." Thus, it is particularly
@@ -701,7 +709,7 @@ def run_relationship_per_year_all_countries():
 		
 		This way, you can easily visualize the interaction between your selected pair of indicators.
 		
-		You can select a specific year to explore with the **slider** on the left side bar.
+		You can select a specific year to explore with the **slider** on the left sidebar.
 	''')
 
 	st.sidebar.header("Adjust Parameters")
@@ -729,7 +737,7 @@ def run_relationship_per_year_all_countries():
 	curr_data = get_by_year(curr_data, year)
 	#st.dataframe(curr_data[['Country Name', e_factor, h_factor]].assign(hack='').set_index('hack'))
 
-	# plot a auxilariy life expectancy graph below
+	# plot a auxiliary life expectancy graph below
 
 	# get max and min y
 	max_life = curr_data['Life expectancy at birth, total (years)'].max().item()
@@ -785,17 +793,17 @@ def run_relationship_per_year_all_countries():
 		The upper chart displays a one dimensional graph of life expectancy (we added some jitters to the vertical
 		position of each data point, so that they are not clumped together).
 		The lower one displays a scatter plot of your selected indicators in the specific year for all countries. 
-		Its x-axis corresponds to your selected economics indicator, and the y axis corresponds to your selected 
+		Its x-axis corresponds to your selected economy indicator, and the y axis corresponds to your selected 
 		health indicator.
-		For both subgraph, a dot represent one particular country. 
+		For both sub-graphs, a dot represents one particular country. 
 
 		By moving your mouse on a specific dot (a specific country) on the lower chart, the name of the country, its exact values 
-		for the two indicators will be shown. Its corresponding life expectancy dot will be hightlighted in the 
-		upper chart. You can compare its relative position in both graph among all data points. 
+		for the two indicators will be shown. Its corresponding life expectancy dot will be highlighted in the 
+		upper chart. You can compare its relative position in both graphs among all data points. 
 
 		You can also hold and drag to select a life expectancy interval in the upper graph. Only countries which has 
 		life expectancy at birth in this interval in the selected year will be shown on the lower chart. If you have 
-		already had an selection interval (shown with a gray backgroud), you can hold and drag the selection interval
+		already had a selection interval (shown with a gray background), you can hold and drag the selection interval
 		to move it around, the lower chart will reflect the change while you shift the selection interval. Double clicking
 		on the upper chart will reset the selection interval.
 
