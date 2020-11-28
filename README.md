@@ -1,4 +1,4 @@
-# CMU Interactive Data Science Assigment 3
+# CMU Interactive Data Science Assigment 3 [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io/cmu-ids-2020/a3-05839_a3)
 
 * **Team members**: hongyuaz@andrew.cmu.edu and lingz2@andrew.cmu.edu
 * **Online URL**: https://share.streamlit.io/cmu-ids-2020/a3-05839_a3
